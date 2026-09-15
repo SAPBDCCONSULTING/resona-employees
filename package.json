@@ -1,0 +1,30 @@
+{
+  "name": "resona-ai-employees-fe",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "build:shared": "npm run build --prefix shared",
+    "dev": "npm run build:shared && next dev --turbopack --port 3001",
+    "build": "npm run build:shared && next build",
+    "start": "next start --port 3001",
+    "lint": "eslint",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@pulsefeedback/shared": "file:./shared",
+    "next": "15.5.25",
+    "react": "19.1.0",
+    "react-dom": "19.1.0"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "^3",
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "15.5.25",
+    "tailwindcss": "^4",
+    "typescript": "^5"
+  }
+}
