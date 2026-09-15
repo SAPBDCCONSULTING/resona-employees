@@ -1,0 +1,281 @@
+export type PermissionKey = 'org:read' | 'org:write' | 'users:read' | 'users:write' | 'roles:read' | 'roles:write' | 'contacts:read' | 'contacts:write' | 'contacts:import' | 'sessions:read' | 'sessions:write' | 'sessions:launch' | 'sessions:archive' | 'campaigns:read' | 'campaigns:write' | 'templates:read' | 'templates:write' | 'reports:read' | 'reports:export' | 'ai:use' | 'settings:read' | 'settings:write' | 'responses:write';
+/** Only two product session types — no focus groups. */
+export type SessionType = 'one_on_one' | 'survey';
+export type SessionStatus = 'draft' | 'scheduled' | 'ongoing' | 'completed' | 'archived';
+/** Board filter chips (per column). */
+export type SessionBoardFilter = 'ongoing' | 'favorites' | 'scheduled' | 'drafts' | 'completed' | 'archived';
+export type CampaignType = 'recurring' | 'linked' | 'independent';
+export type HealthStatus = 'on_track' | 'behind' | 'done' | 'no_schedule';
+export type SessionSortBy = 'endAt' | 'startAt' | 'updatedAt' | 'title' | 'custom';
+/**
+ * Create-session wizard steps (flowchart S1–S6).
+ * Resume draft by jumping to wizardStep.
+ */
+export type WizardStep = 'choose_type' | 'describe' | 'verify' | 'participants' | 'reports' | 'schedule';
+export type CreateEntryMode = 'blank' | 'goal_first' | 'quick_create';
+export declare const WIZARD_STEPS: {
+    id: WizardStep;
+    number: number;
+    title: string;
+    blurb: string;
+}[];
+export interface Organization {
+    id: string;
+    name: string;
+    slug: string;
+    createdAt: string;
+}
+export interface User {
+    id: string;
+    orgId: string;
+    email: string;
+    name: string;
+    roleId: string;
+    locale: string;
+    createdAt: string;
+}
+export interface Role {
+    id: string;
+    orgId: string;
+    name: string;
+    permissions: PermissionKey[];
+}
+/** Denormalized counters for board cards — do not join responses on list. */
+export interface SessionProgress {
+    invited: number;
+    completed: number;
+    percent: number;
+    health: HealthStatus;
+}
+export interface SessionTopic {
+    id: string;
+    title: string;
+    order: number;
+}
+export interface FeedbackSession {
+    id: string;
+    orgId: string;
+    title: string;
+    type: SessionType;
+    status: SessionStatus;
+    startAt: string | null;
+    endAt: string | null;
+    createdBy: string;
+    createdByName: string;
+    campaignId: string | null;
+    progress: SessionProgress;
+    favorite: boolean;
+    participantCount: number;
+    topics: SessionTopic[];
+    goalPrompt: string | null;
+    /** Wizard resume pointer */
+    wizardStep: WizardStep;
+    entryMode: CreateEntryMode;
+    tone: string | null;
+    reportTemplateId: string | null;
+    participantIds: string[];
+    createdAt: string;
+    updatedAt: string;
+}
+export interface CreateSessionDraftInput {
+    type?: SessionType;
+    title?: string;
+    entryMode?: CreateEntryMode;
+    goalPrompt?: string | null;
+    wizardStep?: WizardStep;
+}
+export interface UpdateSessionDraftInput {
+    title?: string;
+    type?: SessionType;
+    goalPrompt?: string | null;
+    tone?: string | null;
+    topics?: SessionTopic[];
+    wizardStep?: WizardStep;
+    participantIds?: string[];
+    reportTemplateId?: string | null;
+    startAt?: string | null;
+    endAt?: string | null;
+    status?: SessionStatus;
+}
+export interface SessionListQuery {
+    type?: SessionType;
+    filter?: SessionBoardFilter;
+    sortBy?: SessionSortBy;
+    search?: string;
+    limit?: number;
+}
+export interface SessionListResponse {
+    items: FeedbackSession[];
+    columns: {
+        one_on_one: FeedbackSession[];
+        survey: FeedbackSession[];
+    };
+}
+export interface Campaign {
+    id: string;
+    orgId: string;
+    title: string;
+    type: CampaignType;
+    status: SessionStatus;
+    startAt: string | null;
+    endAt: string | null;
+    createdBy: string;
+    createdByName: string;
+    /** ISO cadence hint for recurring campaigns, e.g. weekly | monthly | quarterly */
+    cadence: string | null;
+    sessionTemplateId: string | null;
+    sessionsCompleted: number;
+    sessionsTotal: number;
+    percent: number;
+    health: HealthStatus;
+    createdAt: string;
+    updatedAt: string;
+}
+export interface CampaignListResponse {
+    items: Campaign[];
+    columns: {
+        recurring: Campaign[];
+        linked: Campaign[];
+        independent: Campaign[];
+    };
+}
+export interface CreateCampaignInput {
+    title: string;
+    type: CampaignType;
+    cadence?: string | null;
+    sessionTemplateId?: string | null;
+    /** How many child sessions to spawn on create (recurring default 3). */
+    sessionCount?: number;
+    sessionType?: SessionType;
+    startAt?: string | null;
+    endAt?: string | null;
+}
+export interface UpdateCampaignInput {
+    title?: string;
+    cadence?: string | null;
+    startAt?: string | null;
+    endAt?: string | null;
+    status?: SessionStatus;
+    sessionTemplateId?: string | null;
+}
+export interface LaunchCampaignInput {
+    startAt?: string | null;
+    endAt?: string | null;
+}
+export interface CampaignDetail extends Campaign {
+    sessions: FeedbackSession[];
+}
+/** Reusable survey / 1:1 outline (topics + goal), distinct from report templates. */
+export interface SessionTemplate {
+    id: string;
+    orgId: string | null;
+    name: string;
+    description: string;
+    sessionType: SessionType;
+    goalPrompt: string | null;
+    topics: SessionTopic[];
+    tone: string | null;
+    createdAt: string;
+}
+export interface CreateSessionTemplateInput {
+    name: string;
+    description?: string;
+    sessionType: SessionType;
+    goalPrompt?: string | null;
+    topics?: SessionTopic[];
+    tone?: string | null;
+}
+export interface CursorPage<T> {
+    items: T[];
+    nextCursor: string | null;
+}
+export interface ApiHealth {
+    status: 'ok' | 'degraded';
+    service: string;
+    mongo: 'up' | 'down' | 'unknown';
+    redis: 'up' | 'down' | 'unknown';
+    timestamp: string;
+}
+export declare function sessionFilterToQuery(filter: SessionBoardFilter): {
+    status?: SessionStatus;
+    favorite?: boolean;
+};
+export declare function nextWizardStep(current: WizardStep): WizardStep | null;
+export declare function wizardStepPath(sessionId: string, step: WizardStep): string;
+export interface Contact {
+    id: string;
+    orgId: string;
+    name: string;
+    email: string;
+    department: string | null;
+    groupIds: string[];
+    contactType: 'employee' | 'external';
+    createdAt: string;
+}
+export interface ContactGroup {
+    id: string;
+    orgId: string;
+    name: string;
+    memberCount: number;
+    createdAt: string;
+}
+export interface ReportTemplate {
+    id: string;
+    orgId: string | null;
+    name: string;
+    description: string;
+    kind: 'summary' | 'themes' | 'scores' | 'custom';
+    sessionTypes: SessionType[];
+}
+export interface GenerateTopicsInput {
+    goalPrompt: string;
+    type: SessionType;
+    tone?: string | null;
+    title?: string | null;
+}
+export interface GenerateTopicsResult {
+    topics: SessionTopic[];
+    source: 'heuristic' | 'openai';
+}
+export interface SessionJoinInfo {
+    id: string;
+    title: string;
+    type: SessionType;
+    status: SessionStatus;
+    topics: SessionTopic[];
+    startAt: string | null;
+    endAt: string | null;
+    joinPath: string;
+}
+export interface ResponseAnswer {
+    topicId: string;
+    text: string;
+}
+export interface SessionResponse {
+    id: string;
+    orgId: string;
+    sessionId: string;
+    userId: string;
+    answers: ResponseAnswer[];
+    submittedAt: string;
+}
+export interface SubmitSessionResponseInput {
+    answers: ResponseAnswer[];
+}
+/** Employee “My sessions” row. */
+export interface EmployeeAssignment {
+    id: string;
+    title: string;
+    type: SessionType;
+    status: SessionStatus;
+    endAt: string | null;
+    topicsCount: number;
+    completedByMe: boolean;
+    joinPath: string;
+}
+export interface LaunchSessionResult {
+    session: FeedbackSession;
+    joinUrl: string;
+    joinPath: string;
+}
+export declare function sessionJoinPath(session: Pick<FeedbackSession, 'id' | 'type'>): string;

@@ -8,7 +8,9 @@
   --line: #e4dfd4;
   --accent: #2f5d4a;
   --accent-soft: #d9ebe2;
+  --warn-soft: #f3e0d4;
   --info-soft: #e8e6e0;
+  --card-shadow: 0 1px 2px rgba(28, 27, 25, 0.04);
 }
 
 @theme inline {
@@ -19,15 +21,73 @@
   --color-line: var(--line);
   --color-accent: var(--accent);
   --color-accent-soft: var(--accent-soft);
+  --color-warn-soft: var(--warn-soft);
   --color-info-soft: var(--info-soft);
   --font-sans: var(--font-body);
   --font-serif: var(--font-display);
 }
 
+* {
+  box-sizing: border-box;
+}
+
+html,
 body {
   margin: 0;
   min-height: 100%;
-  background: var(--bg);
+}
+
+body {
+  background:
+    radial-gradient(120% 80% at 50% -10%, #e7efe9 0%, transparent 55%),
+    linear-gradient(180deg, #f8f6f1 0%, var(--bg) 45%, #f1eee6 100%);
   color: var(--ink);
   font-family: var(--font-body), system-ui, sans-serif;
+}
+
+a {
+  text-decoration: none;
+}
+
+.employee-shell {
+  width: 100%;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.75rem;
+  padding: 0 1rem;
+  border-radius: 0.75rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.btn-primary {
+  background: var(--accent);
+  color: #fff;
+}
+
+.btn-primary:hover {
+  filter: brightness(1.05);
+}
+
+.btn-secondary {
+  background: var(--bg);
+  color: var(--ink);
+  border: 1px solid var(--line);
+}
+
+.btn-secondary:hover {
+  background: var(--info-soft);
+}
+
+@media (max-width: 380px) {
+  .employee-shell header {
+    flex-direction: column;
+    align-items: stretch;
+  }
 }
