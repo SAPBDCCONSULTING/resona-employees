@@ -13,7 +13,7 @@ const body = Source_Sans_3({
 });
 
 export const metadata: Metadata = {
-  title: 'PulseFeedback — Employee',
+  title: 'Resona AI — Employee',
   description: 'Complete your 1:1 discussions and surveys',
 };
 

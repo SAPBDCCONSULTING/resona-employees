@@ -17,7 +17,7 @@ export default function EmployeeHomePage() {
       </section>
 
       <footer className="mt-auto pt-10 text-center text-xs text-ink-muted">
-        PulseFeedback · Listen · Learn · Act
+        Resona AI · Listen · Learn · Act
       </footer>
     </div>
   );
