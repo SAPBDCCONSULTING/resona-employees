@@ -10,7 +10,7 @@ const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
 export default function EmployeeLoginPage() {
   const router = useRouter();
   const { messages, LanguageControl } = useLocale();
-  const [email, setEmail] = useState('employee@acme.local');
+  const [email, setEmail] = useState('employee@resonaai.local');
   const [password, setPassword] = useState('password123');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);

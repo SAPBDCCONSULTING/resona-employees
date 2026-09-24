@@ -130,7 +130,7 @@ export default function SurveyJoinPage() {
               <Link href="/login" className="text-accent underline">
                 sign in
               </Link>{' '}
-              as <code>employee@acme.local</code>.
+              as <code>employee@resonaai.local</code>.
             </p>
           ) : null}
         </form>
