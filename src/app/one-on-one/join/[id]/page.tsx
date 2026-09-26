@@ -1,9 +1,14 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import type { SessionJoinInfo, SessionResponse } from '@pulsefeedback/shared';
+import type {
+  ConversationChatTurnResult,
+  SessionConversation,
+  SessionJoinInfo,
+  SessionResponse,
+} from '@pulsefeedback/shared';
 import { employeeFetch, getToken } from '@/lib/api';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
@@ -11,11 +16,14 @@ const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
 export default function OneOnOneJoinPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
+  const bottomRef = useRef<HTMLDivElement | null>(null);
+
   const [info, setInfo] = useState<SessionJoinInfo | null>(null);
+  const [conversation, setConversation] = useState<SessionConversation | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [started, setStarted] = useState(false);
-  const [answers, setAnswers] = useState<Record<string, string>>({});
-  const [submitting, setSubmitting] = useState(false);
+  const [input, setInput] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [starting, setStarting] = useState(false);
   const [done, setDone] = useState(false);
 
   useEffect(() => {
@@ -33,7 +41,6 @@ export default function OneOnOneJoinPage() {
           throw new Error('This link is for 1:1 sessions only');
         }
         setInfo(data);
-        setAnswers(Object.fromEntries(data.topics.map((t) => [t.id, ''])));
 
         if (getToken()) {
           try {
@@ -42,10 +49,17 @@ export default function OneOnOneJoinPage() {
             );
             if (!cancelled && existing) {
               setDone(true);
-              setStarted(true);
+              return;
+            }
+            const convo = await employeeFetch<SessionConversation | null>(
+              `/api/sessions/${id}/conversations/mine`,
+            );
+            if (!cancelled && convo) {
+              setConversation(convo);
+              if (convo.status === 'completed') setDone(true);
             }
           } catch {
-            // ignore
+            // ignore — user may need to sign in again on start
           }
         }
       } catch (e) {
@@ -57,32 +71,94 @@ export default function OneOnOneJoinPage() {
     };
   }, [id]);
 
-  async function onSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!info) return;
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [conversation?.messages.length, busy]);
+
+  async function ensureAuth() {
     if (!getToken()) {
       router.push('/login');
-      return;
+      return false;
     }
-    setSubmitting(true);
+    return true;
+  }
+
+  async function startConversation() {
+    if (!(await ensureAuth()) || !info) return;
+    setStarting(true);
     setError(null);
     try {
-      await employeeFetch(`/api/sessions/${id}/responses`, {
-        method: 'POST',
-        body: JSON.stringify({
-          answers: info.topics.map((t) => ({
-            topicId: t.id,
-            text: (answers[t.id] ?? '').trim() || '(no answer)',
-          })),
-        }),
-      });
-      setDone(true);
+      const convo = await employeeFetch<SessionConversation>(
+        `/api/sessions/${id}/conversations/start`,
+        { method: 'POST', body: '{}' },
+      );
+      setConversation(convo);
+      if (convo.status === 'completed') setDone(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Submit failed');
+      setError(err instanceof Error ? err.message : 'Could not start conversation');
     } finally {
-      setSubmitting(false);
+      setStarting(false);
     }
   }
+
+  async function sendMessage() {
+    const text = input.trim();
+    if (!text || busy || !conversation || done) return;
+    if (!(await ensureAuth())) return;
+
+    setInput('');
+    setBusy(true);
+    setError(null);
+
+    // Optimistic user bubble
+    setConversation((prev) =>
+      prev
+        ? {
+            ...prev,
+            messages: [
+              ...prev.messages,
+              {
+                role: 'user',
+                content: text,
+                topicId: null,
+                createdAt: new Date().toISOString(),
+              },
+            ],
+          }
+        : prev,
+    );
+
+    try {
+      const result = await employeeFetch<ConversationChatTurnResult>(
+        `/api/sessions/${id}/conversations/chat`,
+        {
+          method: 'POST',
+          body: JSON.stringify({ message: text }),
+        },
+      );
+      setConversation(result.conversation);
+      if (result.agendaComplete || result.conversation.status === 'completed') {
+        setDone(true);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Chat failed');
+      // Drop optimistic message on failure by reloading mine
+      try {
+        const convo = await employeeFetch<SessionConversation | null>(
+          `/api/sessions/${id}/conversations/mine`,
+        );
+        if (convo) setConversation(convo);
+      } catch {
+        // ignore
+      }
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const topics = info?.topics ?? [];
+  const topicIndex = conversation?.currentTopicIndex ?? 0;
+  const currentTopic = topics[topicIndex] ?? null;
 
   if (error && !info) {
     return (
@@ -108,43 +184,89 @@ export default function OneOnOneJoinPage() {
 
       {done ? (
         <section className="mt-8 rounded-2xl border border-line bg-bg-elevated p-5">
-          <p className="text-sm text-ink">Notes submitted. Thank you.</p>
+          <p className="text-sm text-ink">Conversation complete. Thank you for sharing.</p>
           <Link href="/" className="mt-4 inline-block text-sm text-accent underline">
             Back to my sessions
           </Link>
         </section>
-      ) : !started ? (
+      ) : !info.acceptingResponses ? (
+        <section className="mt-8 rounded-2xl border border-line bg-bg-elevated p-5">
+          <p className="text-sm text-ink">This session is not open for responses yet.</p>
+          {info.startAt ? (
+            <p className="mt-2 text-sm text-ink-muted">
+              Opens {new Date(info.startAt).toLocaleString()}
+            </p>
+          ) : null}
+          <Link href="/" className="mt-4 inline-block text-sm text-accent underline">
+            Back to my sessions
+          </Link>
+        </section>
+      ) : !conversation ? (
         <button
           type="button"
-          onClick={() => setStarted(true)}
-          className="mt-8 rounded-xl bg-accent px-4 py-3 text-sm font-medium text-white"
+          onClick={() => void startConversation()}
+          disabled={starting}
+          className="mt-8 rounded-xl bg-accent px-4 py-3 text-sm font-medium text-white disabled:opacity-60"
         >
-          Start conversation
+          {starting ? 'Starting…' : 'Start AI conversation'}
         </button>
       ) : (
-        <form onSubmit={onSubmit} className="mt-8 space-y-4 rounded-2xl border border-line bg-bg-elevated p-5">
-          <p className="text-sm font-medium text-ink">Share a short note per topic</p>
-          {info.topics.map((t) => (
-            <label key={t.id} className="block text-sm text-ink-muted">
-              {t.order}. {t.title}
-              <textarea
-                className="mt-2 w-full rounded-xl border border-line bg-bg px-3 py-2.5 text-ink outline-none focus:border-accent"
-                rows={2}
-                value={answers[t.id] ?? ''}
-                onChange={(e) => setAnswers((prev) => ({ ...prev, [t.id]: e.target.value }))}
-                required
-              />
-            </label>
-          ))}
-          {error ? <p className="text-sm text-red-700">{error}</p> : null}
-          <button
-            type="submit"
-            disabled={submitting}
-            className="w-full rounded-xl bg-accent px-4 py-3 text-sm font-medium text-white disabled:opacity-60"
+        <section className="mt-6 flex min-h-[520px] flex-1 flex-col rounded-2xl border border-line bg-bg-elevated">
+          {currentTopic ? (
+            <div className="border-b border-line px-4 py-3">
+              <p className="text-xs uppercase tracking-wide text-ink-muted">
+                Topic {topicIndex + 1} of {topics.length}
+              </p>
+              <p className="mt-1 text-sm font-medium text-ink">{currentTopic.title}</p>
+            </div>
+          ) : null}
+
+          <div className="flex-1 space-y-3 overflow-y-auto p-4">
+            {conversation.messages.map((m, i) => (
+              <div
+                key={`${m.role}-${i}-${m.createdAt}`}
+                className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}
+              >
+                <div
+                  className={`max-w-[85%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed ${
+                    m.role === 'user'
+                      ? 'bg-accent text-white'
+                      : 'border border-line bg-bg text-ink'
+                  }`}
+                >
+                  {m.content}
+                </div>
+              </div>
+            ))}
+            {busy ? <p className="text-xs text-ink-muted">Facilitator is typing…</p> : null}
+            <div ref={bottomRef} />
+          </div>
+
+          <form
+            className="flex gap-2 border-t border-line p-3"
+            onSubmit={(e) => {
+              e.preventDefault();
+              void sendMessage();
+            }}
           >
-            {submitting ? 'Submitting…' : 'Submit notes'}
-          </button>
-        </form>
+            <input
+              className="min-w-0 flex-1 rounded-xl border border-line bg-bg px-3 py-2.5 text-ink outline-none focus:border-accent"
+              placeholder="Reply to the facilitator…"
+              value={input}
+              disabled={busy}
+              onChange={(e) => setInput(e.target.value)}
+              maxLength={4000}
+            />
+            <button
+              type="submit"
+              disabled={busy || !input.trim()}
+              className="rounded-xl bg-accent px-4 py-2.5 text-sm font-medium text-white disabled:opacity-60"
+            >
+              Send
+            </button>
+          </form>
+          {error ? <p className="px-4 pb-3 text-sm text-red-700">{error}</p> : null}
+        </section>
       )}
     </main>
   );

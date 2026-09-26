@@ -320,6 +320,8 @@ export interface SessionJoinInfo {
     startAt: string | null;
     endAt: string | null;
     joinPath: string;
+    /** True when status is ongoing and within the start/end window. */
+    acceptingResponses: boolean;
 }
 export interface ResponseAnswer {
     topicId: string;
@@ -335,6 +337,44 @@ export interface SessionResponse {
 }
 export interface SubmitSessionResponseInput {
     answers: ResponseAnswer[];
+}
+/** Per-employee 1:1 discussion thread (topic-guided AI chat). */
+export type ConversationStatus = 'available' | 'active' | 'completed' | 'expired';
+export interface ConversationMessage {
+    role: 'user' | 'assistant';
+    content: string;
+    topicId?: string | null;
+    createdAt: string;
+}
+export interface ConversationTopicSummary {
+    topicId: string;
+    text: string;
+}
+export interface SessionConversation {
+    id: string;
+    orgId: string;
+    sessionId: string;
+    userId: string;
+    status: ConversationStatus;
+    currentTopicIndex: number;
+    messages: ConversationMessage[];
+    topicSummaries: ConversationTopicSummary[];
+    responseId: string | null;
+    createdAt: string;
+    updatedAt: string;
+}
+export interface ConversationChatTurnInput {
+    message: string;
+}
+export interface ConversationChatTurnResult {
+    conversation: SessionConversation;
+    assistantMessage: string;
+    currentTopicIndex: number;
+    currentTopicTitle: string | null;
+    topicComplete: boolean;
+    agendaComplete: boolean;
+    /** Present when agenda finished and Response was written. */
+    response: SessionResponse | null;
 }
 /** Employee “My sessions” row. */
 export interface EmployeeAssignment {

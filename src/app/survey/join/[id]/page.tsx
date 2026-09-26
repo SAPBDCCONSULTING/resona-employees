@@ -102,6 +102,18 @@ export default function SurveyJoinPage() {
             Back to my sessions
           </Link>
         </section>
+      ) : !info.acceptingResponses ? (
+        <section className="mt-8 rounded-2xl border border-line bg-bg-elevated p-6">
+          <p className="text-sm text-ink">This survey is not open for responses yet.</p>
+          {info.startAt ? (
+            <p className="mt-2 text-sm text-ink-muted">
+              Opens {new Date(info.startAt).toLocaleString()}
+            </p>
+          ) : null}
+          <Link href="/" className="mt-4 inline-block text-sm text-accent underline">
+            Back to my sessions
+          </Link>
+        </section>
       ) : (
         <form onSubmit={onSubmit} className="mt-8 space-y-5">
           {info.topics.map((t) => (
